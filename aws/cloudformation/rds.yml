@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: for Single AZ Cluster RDS
+
+Resources:
+  # DBサブネットグループを作成
+  DBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for Aurora DB cluster'
+      SubnetIds:
+        - !ImportValue RdsSubnetId1
+        - !ImportValue RdsSubnetId2
+
+  # Aurora DBクラスタを作成
+  # あとから暗号化する検証のため、あえて暗号化しない
+  AuroraDBCluster:
+    Type: 'AWS::RDS::DBCluster'
+    Properties:
+      Engine: aurora-mysql
+      EngineVersion: '8.0.mysql_aurora.3.05.2'
+      DBClusterIdentifier: aurora-cluster
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterUserPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - !ImportValue DBSecurityGroupId1
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '07:00-09:00'
+      PreferredMaintenanceWindow: 'Mon:00:00-Mon:03:00'
+      StorageEncrypted: false
+
+  # Aurora DBインスタンスを作成
+  AuroraDBInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: !Ref AuroraDBCluster
+      DBInstanceClass: db.t4g.medium
+      Engine: aurora-mysql
+      DBInstanceIdentifier: aurora-instance
+      PubliclyAccessible: false
+
+Parameters:
+  # Aurora DBインスタンスを作成
+  DBMasterUsername:
+    Description: 'The database admin account username'
+    Type: String
+    Default: admin
+
+  # Aurora DBインスタンスを作成
+  DBMasterUserPassword:
+    Description: 'The database admin account password'
+    Type: String
+    NoEcho: true

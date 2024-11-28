@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: for network
+
+Resources:
+
+  # VPCを作成
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: '10.0.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: aurora-vpc
+
+  # サブネットを作成
+  Subnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.0.1.0/24'
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: aurora-subnet-1
+
+  Subnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.0.2.0/24'
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: aurora-subnet-2
+
+  # インターネットゲートウェイを作成
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties: {}
+
+  # インターネットゲートウェイをVPCにアタッチ
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # ルートテーブルを作成
+  RouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: aurora-route-table
+
+  # デフォルトルートを作成
+  Route:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+
+  # サブネットとルートテーブルを関連付け
+  SubnetRouteTableAssociation1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref RouteTable
+
+  SubnetRouteTableAssociation2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref Subnet2
+      RouteTableId: !Ref RouteTable
+
+  # セキュリティグループを作成
+  DBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Security group for Aurora DB cluster'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+
+Outputs:
+  # サブネットIDをエクスポート
+  SubnetId1:
+    Value: !Ref Subnet1
+    Export:
+      Name: RdsSubnetId1
+
+  SubnetId2:
+    Value: !Ref Subnet2
+    Export:
+      Name: RdsSubnetId2
+
+  # セキュリティグループIDをエクスポート
+  DBSecurityGroupId:
+    Value: !Ref DBSecurityGroup
+    Export:
+      Name: DBSecurityGroupId1
